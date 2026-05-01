@@ -70,7 +70,7 @@ ENCODE = {
 # ─────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Student Performance Predictive System",
-    page_icon=r"assets\logo.png",
+    page_icon=r"assets/logo.png",
     layout="wide"
 )
 
@@ -241,7 +241,7 @@ st.markdown(f"""
 # ─────────────────────────────────────────────────────────────────────────────
 # SIDEBAR  (your original layout — untouched)
 # ─────────────────────────────────────────────────────────────────────────────
-logo = load_image(r"assets\logo.png")
+logo = load_image(r"assets/logo.png")
 
 st.sidebar.markdown(f"""
 <div style="text-align:center; padding-bottom:20px;">
