@@ -357,7 +357,7 @@ if prediction_mode == "Individual Prediction":
             unsafe_allow_html=True
         )
         status_text.success("Prediction Successful!")
-       
+        st.info("📄 Your prediction results are displayed below. Scroll down to view the full report. To print, press Ctrl + P on your keyboard or right-click the page and select 'Print'.")
         st.divider()
 
         # ── BUILD FEATURE VECTOR ──────────────────────────────────────────────
