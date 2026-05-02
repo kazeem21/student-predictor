@@ -356,7 +356,8 @@ if prediction_mode == "Individual Prediction":
             "<h3 style='text-align:center;color:green;'>Prediction Completed....100%</h3>",
             unsafe_allow_html=True
         )
-        status_text.success("Prediction Successful! view Results Below!")
+        status_text.success("Prediction Successful!")
+        st.info("📄 Your prediction results are displayed below. Scroll down to view the full report. To print, press Ctrl + P on your keyboard or right-click the page and select 'Print'.")
         st.divider()
 
         # ── BUILD FEATURE VECTOR ──────────────────────────────────────────────
@@ -629,7 +630,8 @@ else:
                 "<h3 style='text-align:center;color:green;'>Prediction Completed....100%</h3>",
                 unsafe_allow_html=True
             )
-            status_text.success("Prediction Successful! view Results Below!")
+            status_text.success("Prediction Successful!")
+            st.info("📄 Your prediction results are displayed below. Scroll down to view the full report. To print, press Ctrl + P on your keyboard or right-click the page and select 'Print'.")
 
             # ── Run real model on uploaded data ───────────────────────────────
             try:
