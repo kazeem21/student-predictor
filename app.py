@@ -92,7 +92,9 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
+
 # GLOBAL CSS
+
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -166,7 +168,10 @@ text-align:center; margin-top:40px; color:#555; font-size:14px;
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
+
 # HERO BANNER
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 banner_img = load_image("assets/banner3.jfif")
 
@@ -262,6 +267,7 @@ st.markdown(f"""
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SIDEBAR
+
 # ─────────────────────────────────────────────────────────────────────────────
 logo = load_image(r"assets/logo.png")
 
@@ -396,7 +402,8 @@ if prediction_mode == "Individual Prediction":
             "<h3 style='text-align:center;color:green;'>Prediction Completed....100%</h3>",
             unsafe_allow_html=True
         )
-        status_text.success("Prediction Successful!")
+
+        status_text.success("Prediction Successful! view Result Below!")
         st.info("📄 Your prediction results are displayed below. Scroll down to view the full report. To print, press Ctrl + P on your keyboard or right-click the page and select 'Print'.")
         st.divider()
 
@@ -833,7 +840,9 @@ else:
                 "<h3 style='text-align:center;color:green;'>Prediction Completed....100%</h3>",
                 unsafe_allow_html=True
             )
-            status_text.success("Prediction Successful!")
+
+            status_text.success("Prediction Successful! view Result Below!")
+
 
             try:
                 available = [f for f in FEATURE_NAMES if f in df.columns]
