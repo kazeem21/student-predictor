@@ -72,14 +72,18 @@ ENCODE = {
                                     "Government Scholarship": 2,
                                     "NGO/Foundation": 3, "Employer": 4},
     "State_of_Origin":             {
-        "Kwara": 0,  "Niger": 1,   "Benue": 2,   "Kogi": 3,
+        "Abia": 0,  "Niger": 1,   "Benue": 2,   "Kogi": 3,
         "Nassarawa": 4, "Plateau": 5, "FCT-Abuja": 6,
         "Oyo": 7,    "Osun": 8,    "Ekiti": 9,   "Ondo": 10,
         "Ogun": 11,  "Lagos": 12,  "Delta": 13,  "Anambra": 14,
         "Imo": 15,   "Enugu": 16,  "Ebonyi": 17, "Kano": 18,
         "Kaduna": 19,"Sokoto": 20, "Zamfara": 21,"Kebbi": 22,
-        "Bauchi": 23,"Others": 24
+        "Bauchi": 23,"Kwara": 24,  "Adamawa": 25,  "Akwa-Ibom": 26,
+        "Bayelsa": 27, "Borno": 28, "Cross River": 29, "Edo": 30,
+        "Gombe": 31,  "Jigawa": 32, "Katsina": 33, "Rivers": 34,
+        "Taraba": 35,  "Yobe": 36,  
     },
+
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -305,10 +309,13 @@ if prediction_mode == "Individual Prediction":
     # ── NEW: State of Origin ──────────────────────────────────────────────────
     state_of_origin = st.sidebar.selectbox(
         "State of Origin",
-        ["Kwara", "Niger", "Benue", "Kogi", "Nassarawa", "Plateau", "FCT-Abuja",
+        ["Abia", "Niger", "Benue", "Kogi", "Nassarawa", "Plateau", "FCT-Abuja",
          "Oyo", "Osun", "Ekiti", "Ondo", "Ogun", "Lagos", "Delta", "Anambra",
          "Imo", "Enugu", "Ebonyi", "Kano", "Kaduna", "Sokoto", "Zamfara",
-         "Kebbi", "Bauchi", "Others"]
+         "Kebbi", "Bauchi", "Kwara",  "Adamawa",  "Akwa-Ibom",
+        "Bayelsa", "Borno", "Cross River", "Edo",
+        "Gombe",  "Jigawa", "Katsina", "Rivers",
+        "Taraba",  "Yobe"]
     )
 
     # ── NEW: Disability Status ────────────────────────────────────────────────
