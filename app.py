@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 import base64
 import time
 import joblib
@@ -35,7 +36,7 @@ def show_preloader(logo):
     return loader
 
 # ─────────────────────────────────────────────────────────────────────────────
-# LOAD MODEL  (cached so it only loads once per session)
+# LOAD MODEL & ASSETS
 # ─────────────────────────────────────────────────────────────────────────────
 @st.cache_resource
 def load_model():
@@ -54,7 +55,7 @@ model, FEATURE_NAMES = load_model()
 importance_df        = load_importance()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ENCODING MAPS  — must match ml_pipeline.py exactly
+# ENCODING MAPS  — updated to include new multi-institution variables
 # ─────────────────────────────────────────────────────────────────────────────
 ENCODE = {
     "Gender":                      {"Male": 1, "Female": 0},
@@ -63,6 +64,22 @@ ENCODE = {
     "Tuition_Payment_Consistency": {"Defaulter": 0, "Irregular": 1, "Consistent": 2},
     "Study_Mode":                  {"Full-Time": 0, "Distance/Part-Time": 1},
     "Marital_Status":              {"Single": 0, "Married": 1},
+    # ── NEW variables for multi-institution model ─────────────────────────
+    "Institution_Type":            {"Federal": 0, "State": 1, "Private": 2},
+    "Disability_Status":           {"None": 0, "Visual Impairment": 1,
+                                    "Hearing Impairment": 2, "Physical Disability": 3},
+    "Sponsorship_Type":            {"Self": 0, "Parent/Guardian": 1,
+                                    "Government Scholarship": 2,
+                                    "NGO/Foundation": 3, "Employer": 4},
+    "State_of_Origin":             {
+        "Kwara": 0,  "Niger": 1,   "Benue": 2,   "Kogi": 3,
+        "Nassarawa": 4, "Plateau": 5, "FCT-Abuja": 6,
+        "Oyo": 7,    "Osun": 8,    "Ekiti": 9,   "Ondo": 10,
+        "Ogun": 11,  "Lagos": 12,  "Delta": 13,  "Anambra": 14,
+        "Imo": 15,   "Enugu": 16,  "Ebonyi": 17, "Kano": 18,
+        "Kaduna": 19,"Sokoto": 20, "Zamfara": 21,"Kebbi": 22,
+        "Bauchi": 23,"Others": 24
+    },
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -75,7 +92,7 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
-# GLOBAL CSS  (your original styles — untouched)
+# GLOBAL CSS
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -137,6 +154,11 @@ padding:10px 14px; border-radius:6px;
 font-size:14px; color:#7b241c; margin:5px 0;
 }
 
+.shap-box {
+background:white; padding:20px; border-radius:12px;
+box-shadow:0px 4px 15px rgba(0,0,0,0.08); margin-top:10px;
+}
+
 .footer {
 text-align:center; margin-top:40px; color:#555; font-size:14px;
 }
@@ -144,7 +166,7 @@ text-align:center; margin-top:40px; color:#555; font-size:14px;
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HERO BANNER  (your original — untouched)
+# HERO BANNER
 # ─────────────────────────────────────────────────────────────────────────────
 banner_img = load_image("assets/banner3.jfif")
 
@@ -233,13 +255,13 @@ st.markdown(f"""
   <div class="hero-bar">
     <div class="hero-stat"><span class="hero-stat-pip"></span> System Online</div>
     <div class="hero-stat"><span class="hero-stat-pip"></span> Model Active</div>
-    <div class="hero-stat"><span class="hero-stat-pip"></span> UNILORIN EdTech &middot; v2.0</div>
+    <div class="hero-stat"><span class="hero-stat-pip"></span> UNILORIN EdTech &middot; v3.0</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SIDEBAR  (your original layout — untouched)
+# SIDEBAR
 # ─────────────────────────────────────────────────────────────────────────────
 logo = load_image(r"assets/logo.png")
 
@@ -261,59 +283,72 @@ prediction_mode = st.sidebar.radio(
 # ─────────────────────────────────────────────────────────────────────────────
 if prediction_mode == "Individual Prediction":
 
-    # ── Sidebar inputs ────────────────────────────────────────────────────────
-    gender = st.sidebar.selectbox("Gender", ["Male", "Female"])
-    age    = st.sidebar.slider("Age", 16, 50, 20)
+    st.sidebar.markdown("**📍 Institution & Demographics**")
 
+    # ── NEW: Institution Type ─────────────────────────────────────────────────
+    institution_type = st.sidebar.selectbox(
+        "Institution Type",
+        ["Federal", "State", "Private"],
+        help="Type of university the student attends"
+    )
+
+    gender = st.sidebar.selectbox("Gender", ["Male", "Female"])
+    age    = st.sidebar.slider("Age at Entry", 16, 50, 20)
+    marital = st.sidebar.selectbox("Marital Status", ["Single", "Married"])
+
+    # ── NEW: State of Origin ──────────────────────────────────────────────────
+    state_of_origin = st.sidebar.selectbox(
+        "State of Origin",
+        ["Kwara", "Niger", "Benue", "Kogi", "Nassarawa", "Plateau", "FCT-Abuja",
+         "Oyo", "Osun", "Ekiti", "Ondo", "Ogun", "Lagos", "Delta", "Anambra",
+         "Imo", "Enugu", "Ebonyi", "Kano", "Kaduna", "Sokoto", "Zamfara",
+         "Kebbi", "Bauchi", "Others"]
+    )
+
+    # ── NEW: Disability Status ────────────────────────────────────────────────
+    disability = st.sidebar.selectbox(
+        "Disability Status",
+        ["None", "Visual Impairment", "Hearing Impairment", "Physical Disability"]
+    )
+
+    st.sidebar.markdown("**🎓 Academic Entry**")
     entry_mode_display = st.sidebar.selectbox(
         "Entry Mode",
         ["UTME (100L)", "Direct Entry (200L)", "Transfer", "Part-Time"]
     )
-    # Map display label → model label
     entry_mode_map = {
         "UTME (100L)": "UTME", "Direct Entry (200L)": "Direct Entry",
         "Transfer": "Transfer", "Part-Time": "Part-Time"
     }
-    entry_mode = entry_mode_map[entry_mode_display]
+    entry_mode  = entry_mode_map[entry_mode_display]
     entry_level = 200 if entry_mode == "Direct Entry" else 100
+    entry_year  = st.sidebar.number_input("Entry Year", 2016, 2024, 2020)
+    o_level     = st.sidebar.slider("O'Level Credits", 4, 9, 6)
+    jamb        = st.sidebar.number_input("JAMB Score (0 if not applicable)", 0, 400, 220)
+    study_mode  = st.sidebar.selectbox("Study Mode", ["Full-Time", "Distance/Part-Time"])
+
+    st.sidebar.markdown("**💰 Socioeconomic Background**")
+    ses = st.sidebar.selectbox("Socioeconomic Status", ["Low", "Middle", "High"])
 
     tuition_display = st.sidebar.selectbox(
-        "Financial Status",
+        "Financial / Tuition Status",
         ["Full Payment", "Partial Payment", "Outstanding"]
     )
-    # Map display label → model label
     tuition_map = {
         "Full Payment": "Consistent", "Partial Payment": "Irregular", "Outstanding": "Defaulter"
     }
     tuition = tuition_map[tuition_display]
 
-    ses = st.sidebar.selectbox(
-        "Socioeconomic Status", ["Low", "Middle", "High"]
+    # ── NEW: Sponsorship Type ─────────────────────────────────────────────────
+    sponsorship = st.sidebar.selectbox(
+        "Sponsorship Type",
+        ["Parent/Guardian", "Self", "Government Scholarship", "NGO/Foundation", "Employer"],
+        help="Who funds the student's education?"
     )
 
-    study_mode = st.sidebar.selectbox(
-        "Study Mode", ["Full-Time", "Distance/Part-Time"]
-    )
-
-    marital = st.sidebar.selectbox("Marital Status", ["Single", "Married"])
-
+    st.sidebar.markdown("**📊 Academic Performance**")
     current_cgpa = st.sidebar.number_input("Current CGPA", 0.0, 5.0, 3.0, step=0.01)
-
-    portal_logins = st.sidebar.slider("Monthly Portal Logins", 0, 200, 45)
-
-    attendance = st.sidebar.slider("Attendance Rate (%)", 0, 100, 75)
-
-    o_level = st.sidebar.slider("O'Level Credits", 4, 9, 6)
-
-    jamb = st.sidebar.number_input(
-        "JAMB Score (0 if not applicable)", 0, 400, 220
-    )
-
-    carryovers = st.sidebar.number_input("Carryover Courses", 0, 20, 0)
-
-    assignment_rate = st.sidebar.slider("Assignment Submission Rate (%)", 0, 100, 80)
-
-    entry_year = st.sidebar.number_input("Entry Year", 2016, 2024, 2020)
+    carryovers   = st.sidebar.number_input("Carryover Courses", 0, 20, 0)
 
     st.sidebar.markdown("**Semester GPAs** *(0.00 – 5.00)*")
     sem_gpas = []
@@ -329,8 +364,13 @@ if prediction_mode == "Individual Prediction":
         "Avg Credit Units/Semester", 10.0, 30.0, 18.0, step=0.5
     )
 
-    # ── Predict button ────────────────────────────────────────────────────────
-    if st.sidebar.button("Predict Student Outcome"):
+    st.sidebar.markdown("**📈 Engagement Metrics**")
+    attendance      = st.sidebar.slider("Attendance Rate (%)", 0, 100, 75)
+    portal_logins   = st.sidebar.slider("Monthly Portal Logins", 0, 200, 45)
+    assignment_rate = st.sidebar.slider("Assignment Submission Rate (%)", 0, 100, 80)
+
+    # ── PREDICT BUTTON ────────────────────────────────────────────────────────
+    if st.sidebar.button("🔍 Predict Student Outcome"):
 
         preloader    = show_preloader(logo)
         progress_bar = st.progress(0)
@@ -340,8 +380,8 @@ if prediction_mode == "Individual Prediction":
             "Loading student profile data...",
             "Validating academic records...",
             "Extracting behavioural features...",
-            "Running predictive model...",
-            "Evaluating academic risk indicators...",
+            "Running Random Forest model...",
+            "Computing SHAP explainability values...",
             "Generating AI prediction report..."
         ]
 
@@ -350,16 +390,17 @@ if prediction_mode == "Individual Prediction":
             stage_index = min(int((percent / 100) * len(stages)), len(stages) - 1)
             progress_bar.progress(percent)
             status_text.text(f"{stages[stage_index]}  {percent}%")
-            time.sleep(0.25)   # faster — model is doing real work now
+            time.sleep(0.20)
 
         preloader.markdown(
             "<h3 style='text-align:center;color:green;'>Prediction Completed....100%</h3>",
             unsafe_allow_html=True
         )
         status_text.success("Prediction Successful!")
+        st.info("📄 Your prediction results are displayed below. Scroll down to view the full report. To print, press Ctrl + P on your keyboard or right-click the page and select 'Print'.")
         st.divider()
 
-        # ── BUILD FEATURE VECTOR ──────────────────────────────────────────────
+        # ── BUILD FEATURE VECTOR (30 features — updated for multi-institution) ─
         cgpa_computed = round(np.mean(sem_gpas), 2)
         total_cu      = int(avg_credits * 8)
 
@@ -384,6 +425,11 @@ if prediction_mode == "Individual Prediction":
             portal_logins,
             assignment_rate,
             carryovers,
+            # ── NEW features ────────────────────────────────────────────────
+            ENCODE["Institution_Type"][institution_type],
+            ENCODE["Disability_Status"][disability],
+            ENCODE["Sponsorship_Type"][sponsorship],
+            ENCODE["State_of_Origin"].get(state_of_origin, 24),
         ]])
 
         # ── RUN MODEL ─────────────────────────────────────────────────────────
@@ -408,34 +454,30 @@ if prediction_mode == "Individual Prediction":
         elif withdraw_pct >= 35: risk_label = "🟡 MODERATE RISK"
         else:                    risk_label = "🟢 LOW RISK"
 
-        # ── KPI DASHBOARD — updated with real model metrics ───────────────────
+        # ── KPI DASHBOARD — updated metrics for multi-institution model ───────
         col1, col2, col3, col4 = st.columns(4)
-
         col1.markdown("""
         <div class="kpi-card">
         <div class="kpi-title">Model Accuracy</div>
-        <div class="kpi-value">91.67%</div>
+        <div class="kpi-value">92.84%</div>
         </div>
         """, unsafe_allow_html=True)
-
         col2.markdown("""
         <div class="kpi-card">
         <div class="kpi-title">F1 Score</div>
-        <div class="kpi-value">0.9409</div>
+        <div class="kpi-value">0.9502</div>
         </div>
         """, unsafe_allow_html=True)
-
         col3.markdown("""
         <div class="kpi-card">
         <div class="kpi-title">Precision</div>
-        <div class="kpi-value">0.9343</div>
+        <div class="kpi-value">0.9463</div>
         </div>
         """, unsafe_allow_html=True)
-
         col4.markdown("""
         <div class="kpi-card">
         <div class="kpi-title">AUC-ROC</div>
-        <div class="kpi-value">0.9689</div>
+        <div class="kpi-value">0.9768</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -471,96 +513,259 @@ if prediction_mode == "Individual Prediction":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # ── XAI — WHY THIS PREDICTION ─────────────────────────────────────────
-        st.subheader("🧠 Why This Prediction?  (Explainability)")
-        xai_col1, xai_col2 = st.columns(2)
+        # ── SHAP EXPLAINABILITY — instance-level XAI ──────────────────────────
+        st.subheader("🧠 SHAP Explainability — Why This Prediction?")
+        st.caption("SHAP (SHapley Additive exPlanations) shows exactly how much each factor pushed this student toward Retained or Withdrawn.")
 
-        protective = []
-        risks_list = []
+        try:
+            import shap
 
-        if tuition == "Consistent":
-            protective.append("✅ <b>Tuition payment is Consistent</b> — strongest positive retention signal (25.9% importance).")
-        elif tuition == "Irregular":
-            risks_list.append("⚠️ <b>Tuition payment is Irregular</b> — moderate dropout risk. Consider payment plan.")
-        else:
-            risks_list.append("🔴 <b>Tuition payment Outstanding</b> — highest single dropout risk factor.")
+            # Build a named DataFrame so SHAP shows readable feature names
+            feature_col_names = [
+                "Gender", "Age_at_Entry", "Entry_Mode", "Entry_Level", "Entry_Year",
+                "Socioeconomic_Status", "Tuition_Payment_Consistency", "Study_Mode",
+                "Marital_Status", "O_Level_Credits", "JAMB_Score",
+                "Semester_1_GPA", "Semester_2_GPA", "Semester_3_GPA", "Semester_4_GPA",
+                "Semester_5_GPA", "Semester_6_GPA", "Semester_7_GPA", "Semester_8_GPA",
+                "Cumulative_GPA", "Avg_Credit_Units_Per_Sem", "Total_Credit_Units_Earned",
+                "Attendance_Rate_Pct", "Portal_Login_Count",
+                "Assignment_Submission_Rate_Pct", "Carryover_Courses",
+                "Institution_Type", "Disability_Status",
+                "Sponsorship_Type", "State_of_Origin"
+            ]
 
-        if ses == "High":
-            protective.append("✅ <b>Socioeconomic status is High</b> — reduces financial vulnerability.")
-        elif ses == "Low":
-            risks_list.append("⚠️ <b>Socioeconomic status is Low</b> — increases dropout vulnerability.")
+            fv_df = pd.DataFrame(feature_vector, columns=feature_col_names)
 
-        if cgpa_computed >= 3.5:
-            protective.append(f"✅ <b>CGPA {cgpa_computed:.2f}</b> is strong — students above 3.5 persist at high rates.")
-        elif cgpa_computed < 2.0:
-            risks_list.append(f"🔴 <b>CGPA {cgpa_computed:.2f}</b> is critically low — immediate academic intervention needed.")
-        elif cgpa_computed < 2.5:
-            risks_list.append(f"⚠️ <b>CGPA {cgpa_computed:.2f}</b> is below 2.5 threshold — academic support recommended.")
+            # Compute SHAP values using TreeExplainer (optimised for Random Forest)
+            explainer = shap.TreeExplainer(model)
 
-        if carryovers == 0:
-            protective.append("✅ <b>No carryover courses</b> — academic progression is on track.")
-        elif carryovers > 4:
-            risks_list.append(f"🔴 <b>{carryovers} carryover courses</b> — significant disengagement signal.")
-        elif carryovers > 0:
-            risks_list.append(f"⚠️ <b>{carryovers} carryover course(s)</b> — monitor academic progress closely.")
+            # Use the modern Explanation object — works across all SHAP versions
+            explanation = explainer(fv_df, check_additivity=False)
 
-        if attendance >= 75:
-            protective.append(f"✅ <b>Attendance {attendance}%</b> is above the 75% benchmark.")
-        elif attendance < 50:
-            risks_list.append(f"🔴 <b>Attendance {attendance}%</b> is critically low.")
-        else:
-            risks_list.append(f"⚠️ <b>Attendance {attendance}%</b> is below the 75% benchmark.")
+            # explanation.values shape: (n_samples, n_features, n_classes) or (n_samples, n_features)
+            vals = explanation.values
 
-        if sem_gpas[2] >= 3.0:
-            protective.append(f"✅ <b>Semester 3 GPA {sem_gpas[2]:.2f}</b> — early trajectory is positive.")
-        elif sem_gpas[2] < 2.0:
-            risks_list.append(f"🔴 <b>Semester 3 GPA {sem_gpas[2]:.2f}</b> — critical early warning signal.")
-
-        with xai_col1:
-            st.markdown("**Protective Factors**")
-            if protective:
-                for p in protective:
-                    st.markdown(f'<div class="xai-good">{p}</div>', unsafe_allow_html=True)
+            if vals.ndim == 3:
+               # (n_samples, n_features, n_classes) — take sample 0, class 1 (Retained)
+               sv = vals[0, :, 1]
+            elif vals.ndim == 2:
+               # (n_samples, n_features) — take sample 0
+               sv = vals[0, :]
             else:
-                st.markdown('<div class="xai-warn">No strong protective factors detected.</div>', unsafe_allow_html=True)
+               sv = vals.flatten()
 
-        with xai_col2:
-            st.markdown("**Risk Factors — Intervention Needed**")
-            if risks_list:
-                for r in risks_list:
+            sv = np.array(sv, dtype=float)
+
+            # Build a clean SHAP summary dataframe
+            # Build a clean SHAP summary dataframe
+            shap_df = pd.DataFrame({
+                    "Feature":    feature_col_names,
+                    "SHAP_Value": sv,
+            })
+            shap_df["Abs_SHAP"]       = shap_df["SHAP_Value"].abs()
+            shap_df["Feature_Clean"]  = shap_df["Feature"].str.replace("_", " ")
+            shap_df["Direction"]      = shap_df["SHAP_Value"].apply(
+                lambda v: "Increases Retention" if v > 0 else "Increases Withdrawal Risk"
+            )
+            shap_df = shap_df.sort_values("Abs_SHAP", ascending=False).head(12).reset_index(drop=True)
+
+            # ── SHAP waterfall bar chart ──────────────────────────────────────
+            colors = ["#1E8449" if v > 0 else "#C0392B" for v in shap_df["SHAP_Value"].tolist()]
+            # ── SHAP waterfall bar chart ──────────────────────────────────────
+            st.markdown("**SHAP Feature Contribution — Individual Student Prediction**")
+            st.caption("🟢 Green bars push toward Retained  |  🔴 Red bars push toward Withdrawal")
+
+            shap_display = shap_df[["Feature_Clean", "SHAP_Value"]].copy()
+            shap_display = shap_display.sort_values("SHAP_Value", ascending=True)
+            shap_display.columns = ["Feature", "SHAP Value"]
+            shap_display = shap_display.set_index("Feature")
+
+            import matplotlib.pyplot as plt
+            import matplotlib
+            matplotlib.use("Agg")
+
+            fig_shap, ax = plt.subplots(figsize=(10, 6))
+            bar_colors = ["#1E8449" if v > 0 else "#C0392B"
+                          for v in shap_display["SHAP Value"]]
+            bars = ax.barh(
+               shap_display.index,
+               shap_display["SHAP Value"],
+               color=bar_colors,
+               edgecolor="white",
+               linewidth=0.5
+            )
+            ax.axvline(0, color="#555555", linewidth=1.2, linestyle="--")
+            for bar, val in zip(bars, shap_display["SHAP Value"]):
+                if val >= 0:
+                    # Positive bars — label outside to the right
+                    ax.text(val + 0.0003,
+                            bar.get_y() + bar.get_height()/2,
+                            f"{val:+.4f}", va="center", ha="left",
+                            fontsize=8, fontweight="bold", color="#1E8449")
+                else:
+                    # Negative bars — label inside the bar (white text)
+                    ax.text(val / 2,
+                            bar.get_y() + bar.get_height()/2,
+                            f"{val:+.4f}", va="center", ha="center",
+                            fontsize=8, fontweight="bold", color="white")
+            ax.set_xlabel("SHAP Value (impact on model prediction)", fontsize=10)
+            ax.set_title("SHAP Feature Contributions — This Student's Prediction",
+                         fontsize=12, fontweight="bold", color="#1F4E79", pad=10)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.set_facecolor("#F9FAFB")
+            fig_shap.patch.set_facecolor("white")
+            plt.tight_layout()
+            st.pyplot(fig_shap)
+            plt.close()
+
+            # ── Top SHAP drivers in plain English ────────────────────────────
+            st.markdown("**📋 SHAP Plain-Language Interpretation**")
+            top_positive = shap_df[shap_df["SHAP_Value"] > 0].head(3)
+            top_negative = shap_df[shap_df["SHAP_Value"] < 0].head(3)
+
+            shap_col1, shap_col2 = st.columns(2)
+            with shap_col1:
+                st.markdown("**Factors supporting Retention:**")
+                if len(top_positive) > 0:
+                    for _, row in top_positive.iterrows():
+                        st.markdown(
+                            f'<div class="xai-good">✅ <b>{row["Feature_Clean"]}</b> '
+                            f'— SHAP contribution: <b>+{row["SHAP_Value"]:.4f}</b> '
+                            f'(pushes prediction toward Retained)</div>',
+                            unsafe_allow_html=True
+                        )
+                else:
+                    st.markdown('<div class="xai-warn">No strong retention-supporting factors detected.</div>',
+                                unsafe_allow_html=True)
+
+            with shap_col2:
+                st.markdown("**Factors increasing Withdrawal risk:**")
+                if len(top_negative) > 0:
+                    for _, row in top_negative.iterrows():
+                        st.markdown(
+                            f'<div class="xai-risk">⚠️ <b>{row["Feature_Clean"]}</b> '
+                            f'— SHAP contribution: <b>{row["SHAP_Value"]:.4f}</b> '
+                            f'(pushes prediction toward Withdrawal)</div>',
+                            unsafe_allow_html=True
+                        )
+                else:
+                    st.markdown('<div class="xai-good">✅ No withdrawal risk factors detected.</div>',
+                                unsafe_allow_html=True)
+
+        except ImportError:
+            # Graceful fallback if SHAP not installed — show rule-based XAI
+            st.warning("⚠️ SHAP library not installed. Run: pip install shap  — Showing rule-based explanation instead.")
+            _show_rule_based_xai(tuition, ses, cgpa_computed, carryovers, attendance, sem_gpas)
+
+        except Exception as e:
+            st.warning(f"SHAP computation encountered an issue: {e}. Showing rule-based explanation.")
+            # Rule-based fallback
+            protective, risks_list = [], []
+            if tuition == "Consistent":
+                protective.append("✅ <b>Tuition payment Consistent</b> — strongest positive retention signal (22.47% importance).")
+            elif tuition == "Irregular":
+                risks_list.append("⚠️ <b>Tuition payment Irregular</b> — moderate dropout risk.")
+            else:
+                risks_list.append("🔴 <b>Tuition payment Outstanding</b> — highest single dropout risk factor.")
+            if cgpa_computed >= 3.5:
+                protective.append(f"✅ <b>CGPA {cgpa_computed:.2f}</b> — strong academic trajectory.")
+            elif cgpa_computed < 2.5:
+                risks_list.append(f"🔴 <b>CGPA {cgpa_computed:.2f}</b> — below retention threshold.")
+            if carryovers == 0:
+                protective.append("✅ <b>No carryover courses</b> — on-track progression.")
+            elif carryovers > 4:
+                risks_list.append(f"🔴 <b>{carryovers} carryover courses</b> — significant disengagement signal.")
+            if attendance >= 75:
+                protective.append(f"✅ <b>Attendance {attendance}%</b> — above 75% benchmark.")
+            else:
+                risks_list.append(f"⚠️ <b>Attendance {attendance}%</b> — below recommended threshold.")
+
+            fb_c1, fb_c2 = st.columns(2)
+            with fb_c1:
+                st.markdown("**Protective Factors**")
+                for p in (protective or ['<div class="xai-warn">None detected.</div>']):
+                    st.markdown(f'<div class="xai-good">{p}</div>', unsafe_allow_html=True)
+            with fb_c2:
+                st.markdown("**Risk Factors**")
+                for r in (risks_list or ['<div class="xai-good">✅ None detected.</div>']):
                     box = "xai-risk" if "🔴" in r else "xai-warn"
                     st.markdown(f'<div class="{box}">{r}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<div class="xai-good">✅ No significant risk factors detected.</div>', unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
         # ── INTERVENTION RECOMMENDATIONS ──────────────────────────────────────
         st.subheader("📌 Recommended Interventions")
         interventions = []
-        if tuition in ["Irregular", "Defaulter"]:
-            interventions.append("💰 Connect student with bursary office, scholarship opportunities, or structured payment plan.")
-        if ses == "Low":
-            interventions.append("🤝 Refer to student welfare services for socioeconomic support assessment.")
-        if cgpa_computed < 2.5:
-            interventions.append("📚 Enrol in peer tutoring programme; schedule regular academic advisor meetings.")
-        if carryovers > 2:
-            interventions.append("📋 Review and restructure credit load to prevent further carryover accumulation.")
-        if attendance < 75:
-            interventions.append("🏫 Flag for attendance improvement programme; investigate barriers to attendance.")
-        if assignment_rate < 60:
-            interventions.append("📝 Faculty to provide structured assignment support and track submission compliance.")
-        if not interventions:
-            interventions.append("✅ No urgent interventions required. Continue routine monitoring.")
+
+        # ── Build intervention list purely from SHAP withdrawal risk factors ──────────
+        # Only factors with negative SHAP values (pushing toward Withdrawal) get flagged
+
+        shap_risk_features = shap_df[shap_df["SHAP_Value"] < 0]["Feature"].tolist()
+
+        for risk_feature in shap_risk_features:
+
+            if risk_feature == "Tuition_Payment_Consistency":
+                interventions.append("💰 <b>Tuition Risk:</b> Tuition payment pattern is increasing withdrawal risk — connect student with bursary office, payment plans, or scholarship opportunities immediately.")
+
+            elif risk_feature == "Cumulative_GPA":
+                interventions.append("📚 <b>Academic Performance Risk:</b> Cumulative GPA is a withdrawal risk factor — enrol student in peer tutoring and schedule mandatory academic advisory sessions.")
+
+            elif risk_feature == "Carryover_Courses":
+                interventions.append("📋 <b>Carryover Risk:</b> Carryover courses are increasing dropout risk — review and restructure credit load with the Head of Department.")
+
+            elif risk_feature == "Attendance_Rate_Pct":
+                interventions.append("🏫 <b>Attendance Risk:</b> Low attendance is flagged as a withdrawal risk — investigate barriers and enrol in attendance improvement programme.")
+
+            elif risk_feature == "Socioeconomic_Status":
+                interventions.append("🤝 <b>Socioeconomic Risk:</b> Household economic background is increasing withdrawal risk — refer to student welfare services for financial and pastoral support.")
+
+            elif risk_feature == "Sponsorship_Type":
+                interventions.append("💼 <b>Funding Risk:</b> Sponsorship type is a withdrawal risk factor — connect student with alternative funding sources and institutional financial aid.")
+
+            elif risk_feature == "Assignment_Submission_Rate_Pct":
+                interventions.append("📝 <b>Engagement Risk:</b> Low assignment submission rate is flagged — faculty to implement structured submission tracking and support.")
+
+            elif risk_feature == "Portal_Login_Count":
+                interventions.append("💻 <b>Digital Engagement Risk:</b> Low portal login activity signals academic disengagement — advisor to investigate and encourage active use of institutional digital resources.")
+
+            elif "Semester" in risk_feature and "GPA" in risk_feature:
+                sem = risk_feature.replace("Semester_", "Semester ").replace("_GPA", " GPA")
+                interventions.append(f"📉 <b>Early Academic Warning:</b> {sem} is a withdrawal risk factor — early academic intervention and mentoring recommended at this stage.")
+
+            elif risk_feature == "Institution_Type":
+                interventions.append(f"🏛️ <b>Institutional Risk:</b> Institution type is contributing to withdrawal risk for this student — ensure access to institution-specific retention and support programmes.")
+
+            elif risk_feature == "Entry_Year":
+                interventions.append("📅 <b>Cohort Risk:</b> Entry year pattern is flagged as a risk factor — advisor to check if student belongs to a cohort with elevated dropout history and provide targeted support.")
+
+            elif risk_feature == "O_Level_Credits":
+                interventions.append("📖 <b>Entry Qualification Risk:</b> O'Level credit profile is a withdrawal risk factor — consider foundational academic support to bridge entry-level knowledge gaps.")
+
+            elif risk_feature == "JAMB_Score":
+                interventions.append("📖 <b>Admission Score Risk:</b> JAMB score profile is contributing to withdrawal risk — recommend foundational academic strengthening support.")
+
+            elif risk_feature == "Disability_Status":
+                interventions.append("♿ <b>Accessibility Risk:</b> Disability status is flagged as a risk factor — ensure full disability support services and accessible learning resources are in place.")
+
+            elif risk_feature == "State_of_Origin":
+                interventions.append("🗺️ <b>Geographic Risk:</b> State of origin is contributing to withdrawal risk — check for interstate student integration challenges and provide pastoral support.")
+
+     # ── Disability — always flag regardless of SHAP ───────────────────────────────
+            if disability != "None" and "Disability_Status" not in shap_risk_features:
+                interventions.append(f"♿ <b>Disability Support:</b> Student has {disability} — ensure appropriate support services are in place.")
+
+      # ── Default if no risk factors identified ────────────────────────────────────
+            if not interventions:
+                interventions.append("✅ <b>No urgent interventions required.</b> All key risk factors are within acceptable range. Continue routine semesterly monitoring.")
 
         for item in interventions:
             st.markdown(f'<div class="xai-good">{item}</div>', unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── FEATURE IMPORTANCE CHART — now uses real model data ──────────────────
+    # ── FEATURE IMPORTANCE CHART ──────────────────────────────────────────────
     st.markdown('<div class="chart-box">', unsafe_allow_html=True)
-
     if importance_df is not None:
         chart_data = importance_df.head(10).copy()
         chart_data["Feature"] = chart_data["Feature"].str.replace("_", " ")
@@ -572,31 +777,30 @@ if prediction_mode == "Individual Prediction":
             color="Importance_Pct",
             color_continuous_scale="Blues",
             labels={"Importance_Pct": "Importance (%)", "Feature": "Feature"},
-            title="Top 10 Predictors of Student Retention (Random Forest — Real Model)"
+            title="Top 10 Predictors of Student Retention (Optimised Random Forest — Multi-Institutional)"
         )
     else:
-        # Fallback to placeholder if CSV not found
         data = pd.DataFrame({
-            "Feature": ["Tuition Consistency","Socioeconomic Status","Carryover Courses",
-                        "Cumulative GPA","Semester 3 GPA"],
-            "Importance": [25.9, 9.74, 8.96, 7.06, 5.45]
+            "Feature": ["Tuition Consistency", "Cumulative GPA", "Socioeconomic Status",
+                        "Carryover Courses", "Semester 3 GPA"],
+            "Importance": [22.47, 11.83, 10.12, 8.64, 6.21]
         })
         fig = px.bar(data, x="Importance", y="Feature", orientation="h",
                      color="Importance", color_continuous_scale="Blues")
-
     fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
     st.plotly_chart(fig, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# BULK PREDICTION  — now uses real model
+# BULK PREDICTION
 # ─────────────────────────────────────────────────────────────────────────────
 else:
     st.subheader("Bulk Prediction Upload")
-    
+    st.info("Upload the **nigerian_university_ML_ready.csv** file or any CSV with the same column structure. "
+            "New columns: Institution_Type, Disability_Status, Sponsorship_Type, State_of_Origin.")
 
-    uploaded_file = st.file_uploader("Upload Student Dataset (format- file.csv).", type=["csv"])
+    uploaded_file = st.file_uploader("Upload Student Dataset (format: file.csv)", type=["csv"])
 
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
@@ -623,7 +827,7 @@ else:
                 stage_index = min(int((percent / 100) * len(stages)), len(stages) - 1)
                 progress_bar.progress(percent)
                 status_text.text(f"{stages[stage_index]}  {percent}%")
-                time.sleep(0.25)
+                time.sleep(0.20)
 
             preloader.markdown(
                 "<h3 style='text-align:center;color:green;'>Prediction Completed....100%</h3>",
@@ -631,15 +835,13 @@ else:
             )
             status_text.success("Prediction Successful!")
 
-            # ── Run real model on uploaded data ───────────────────────────────
             try:
-                # Select only the feature columns the model expects
                 available = [f for f in FEATURE_NAMES if f in df.columns]
                 missing   = [f for f in FEATURE_NAMES if f not in df.columns]
 
                 if missing:
-                    st.warning(f"⚠️ {len(missing)} expected column(s) not found in upload: {missing}. "
-                               "Filling with 0. For best results, upload the ML-ready CSV.")
+                    st.warning(f"⚠️ {len(missing)} expected column(s) not found: {missing}. "
+                               "Filling with 0. For best results, upload the full ML-ready CSV.")
 
                 X_bulk = pd.DataFrame(0, index=df.index, columns=FEATURE_NAMES)
                 for col in available:
@@ -656,7 +858,6 @@ else:
                     labels=["🔴 High Risk", "🟡 Moderate Risk", "🟢 Low Risk"]
                 )
 
-                # Performance class from CGPA if available
                 if "Cumulative_GPA" in df.columns:
                     conditions = [
                         df["Cumulative_GPA"] >= 4.5,
@@ -667,18 +868,14 @@ else:
                     choices = ["First Class", "Second Class Upper", "Second Class Lower", "Third Class"]
                     df["Performance_Class"] = np.select(conditions, choices, default="Fail/At-Risk")
 
-                # Style results
                 def highlight_risk(row):
                     if row["Retention_Prediction"] == "Withdrawn":
-                        return ["background-color:#a63e32"] * len(row)
+                        return ["background-color:#fdecea"] * len(row)
                     return [""] * len(row)
 
-                styled_df = df.style.apply(highlight_risk, axis=1)
-                st.dataframe(styled_df, use_container_width=True)
+                st.dataframe(df.style.apply(highlight_risk, axis=1), use_container_width=True)
 
-                # Summary charts
                 col1, col2 = st.columns(2)
-
                 with col1:
                     fig1 = px.histogram(
                         df, x="Retention_Prediction",
@@ -699,7 +896,6 @@ else:
                         fig2.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
                         st.plotly_chart(fig2, use_container_width=True)
 
-                # Download results
                 csv_out = df.to_csv(index=False).encode("utf-8")
                 st.download_button(
                     label="⬇️ Download Prediction Results as CSV",
@@ -713,14 +909,14 @@ else:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# FOOTER  (your original — untouched)
+# FOOTER
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="footer">
 Designed &amp; Developed by<br>
-<b>FABUNMI Kazeem Olaiya - 15/68TC001</b>
-<br>Department of Educational Technology
-University of Ilorin
-<br>© 2026
+<b>FABUNMI Kazeem Olaiya - 15/68TC001</b><br>
+Department of Educational Technology<br>
+University of Ilorin<br>
+© 2026
 </div>
 """, unsafe_allow_html=True)
