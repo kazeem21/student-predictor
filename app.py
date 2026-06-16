@@ -356,9 +356,13 @@ if prediction_mode == "Individual Prediction":
             "<h3 style='text-align:center;color:green;'>Prediction Completed....100%</h3>",
             unsafe_allow_html=True
         )
+<<<<<<< HEAD
         status_text.success("Prediction Successful! view Result Below!")
        
         status_text.success("Prediction Successful!") 
+=======
+        status_text.success("Prediction Successful!")
+>>>>>>> e75d3ebb7999879af031af46e578b2daef5678ee
         st.info("📄 Your prediction results are displayed below. Scroll down to view the full report. To print, press Ctrl + P on your keyboard or right-click the page and select 'Print'.")
         st.divider()
 
@@ -632,7 +636,12 @@ else:
                 "<h3 style='text-align:center;color:green;'>Prediction Completed....100%</h3>",
                 unsafe_allow_html=True
             )
+<<<<<<< HEAD
             status_text.success("Prediction Successful! view Result Below!")
+=======
+            status_text.success("Prediction Successful!")
+            st.info("📄 Your prediction results are displayed below. Scroll down to view the full report. To print, press Ctrl + P on your keyboard or right-click the page and select 'Print'.")
+>>>>>>> e75d3ebb7999879af031af46e578b2daef5678ee
 
             # ── Run real model on uploaded data ───────────────────────────────
             try:
