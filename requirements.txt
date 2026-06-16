@@ -7,3 +7,4 @@ seaborn
 joblib
 imbalanced-learn
 plotly
+shap
