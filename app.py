@@ -75,7 +75,7 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
-# GLOBAL CSS  (your original styles — untouched)
+# GLOBAL CSS  ( original styles — untouched)
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -144,7 +144,7 @@ text-align:center; margin-top:40px; color:#555; font-size:14px;
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HERO BANNER  (your original — untouched)
+# HERO BANNER  (original — untouched)
 # ─────────────────────────────────────────────────────────────────────────────
 banner_img = load_image("assets/banner3.jfif")
 
@@ -239,7 +239,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SIDEBAR  (your original layout — untouched)
+# SIDEBAR  (original layout — untouched)
 # ─────────────────────────────────────────────────────────────────────────────
 logo = load_image(r"assets/logo.png")
 
@@ -356,7 +356,10 @@ if prediction_mode == "Individual Prediction":
             "<h3 style='text-align:center;color:green;'>Prediction Completed....100%</h3>",
             unsafe_allow_html=True
         )
-        status_text.success("Prediction Successful!")
+        status_text.success("Prediction Successful! view Result Below!")
+       
+        status_text.success("Prediction Successful!") 
+        st.info("📄 Your prediction results are displayed below. Scroll down to view the full report. To print, press Ctrl + P on your keyboard or right-click the page and select 'Print'.")
         st.divider()
 
         # ── BUILD FEATURE VECTOR ──────────────────────────────────────────────
@@ -629,7 +632,7 @@ else:
                 "<h3 style='text-align:center;color:green;'>Prediction Completed....100%</h3>",
                 unsafe_allow_html=True
             )
-            status_text.success("Prediction Successful!")
+            status_text.success("Prediction Successful! view Result Below!")
 
             # ── Run real model on uploaded data ───────────────────────────────
             try:
