@@ -811,8 +811,7 @@ if prediction_mode == "Individual Prediction":
 # ─────────────────────────────────────────────────────────────────────────────
 else:
     st.subheader("Bulk Prediction Upload")
-    st.info("Upload the **nigerian_university_ML_ready.csv** file or any CSV with the same column structure. "
-            "New columns: Institution_Type, Disability_Status, Sponsorship_Type, State_of_Origin.")
+    st.info("Upload the file (in CSV or Excel format) with the same column structure." "Gender, Age at Entry, Entry Mode, Entry Level, Entry Year, Socioeconomic Status, Tuition Payment Consistency, Study Mode, Marital Status, O Level Credits, JAMB Score, Semester1 GPA, Semester2 GPA, Semester3 GPA, Semester4 GPA, Semester5 GPA, Semester6 GPA, Semester7 GPA, Semester8 GPA, Cumulative GPA, Avg Credit Units Per Sem,Total Credit Units Earned, Attendance Rate Pct, Portal Login Count, Assignment Submission Rate Pct, Carryover Courses, Academic Performance Class,Institution_Type, Disability_Status, Sponsorship_Type, State_of_Origin, Retention Status.")
 
     uploaded_file = st.file_uploader("Upload Student Dataset (format: file.csv)", type=["csv"])
 
@@ -886,7 +885,7 @@ else:
 
                 def highlight_risk(row):
                     if row["Retention_Prediction"] == "Withdrawn":
-                        return ["background-color:#fdecea"] * len(row)
+                        return ["background-color:#a63e32"] * len(row)
                     return [""] * len(row)
 
                 st.dataframe(df.style.apply(highlight_risk, axis=1), use_container_width=True)
